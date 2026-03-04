@@ -6,6 +6,8 @@ on:
   pull_request:
     types: [ready_for_review, synchronize]
 
+
+concurrency:n  group: pr-auto-review-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   pull-requests: write
   contents: read
