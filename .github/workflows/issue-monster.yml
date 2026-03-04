@@ -5,9 +5,10 @@ name: "👹 Issue Monster"
 on:
   issues:
     types: [labeled]
+concurrency:
+  group: issue-monster-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: issue-monster-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
 
