@@ -5,9 +5,10 @@ name: "🏷️ Issue Triage"
 on:
   issues:
     types: [opened, edited]
+concurrency:
+  group: issue-triage-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: issue-triage-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
 
