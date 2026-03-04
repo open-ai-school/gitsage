@@ -8,6 +8,8 @@ on:
   issues:
     types: [opened]
 
+
+concurrency:n  group: welcome-bot-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
   pull-requests: write
