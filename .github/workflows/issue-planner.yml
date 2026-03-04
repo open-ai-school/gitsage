@@ -5,9 +5,10 @@ name: "📋 Issue Planner"
 on:
   issues:
     types: [labeled]
+concurrency:
+  group: issue-planner-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: issue-planner-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
 
