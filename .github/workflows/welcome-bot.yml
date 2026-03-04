@@ -1,0 +1,62 @@
+# 👋 Welcome Bot
+# Welcomes first-time contributors
+name: "👋 Welcome Bot"
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const item = context.payload.pull_request || context.payload.issue;
+            const author = item.user.login;
+
+            // Skip bots
+            if (author.includes('[bot]') || author.includes('bot')) return;
+
+            // Check if this is their first contribution
+            if (isPR) {
+              const prs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                per_page: 5,
+              });
+              const authorPrs = prs.data.filter(p => p.user.login === author);
+              if (authorPrs.length > 1) return; // not first PR
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                body: `## 🎉 Welcome, @${author}!\n\nThank you for your first pull request to this project! We're excited to have you here.\n\nA maintainer will review your changes soon. In the meantime:\n- Make sure all CI checks pass ✅\n- Review your own changes one more time 🔍\n- Feel free to ask questions in this PR if you need help 💬\n\n---\n*🤖 Welcome Bot — Helping new contributors feel at home*`,
+              });
+            } else {
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                creator: author,
+                state: 'all',
+                per_page: 5,
+              });
+              if (issues.data.length > 1) return; // not first issue
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                body: `## 👋 Welcome, @${author}!\n\nThank you for opening your first issue! A maintainer will review it soon.\n\nIf you'd like to work on this issue yourself, just comment "I'd like to work on this" and we'll assign it to you! 🙌\n\n---\n*🤖 Welcome Bot*`,
+              });
+            }
