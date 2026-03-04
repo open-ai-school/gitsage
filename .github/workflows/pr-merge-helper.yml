@@ -8,6 +8,8 @@ on:
   check_suite:
     types: [completed]
 
+
+concurrency:n  group: pr-merge-helper-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   pull-requests: write
   checks: read
