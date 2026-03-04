@@ -5,9 +5,10 @@ name: "🔗 Sub-issue Closer"
 on:
   pull_request:
     types: [closed]
+concurrency:
+  group: sub-issue-closer-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: sub-issue-closer-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
   pull-requests: read
