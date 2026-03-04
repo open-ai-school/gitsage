@@ -1,0 +1,104 @@
+# ✅ PR Merge Helper
+# Labels PR as ready-to-merge when approved and all checks pass
+name: "✅ PR Merge Helper"
+
+on:
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  checks: read
+
+jobs:
+  check-merge-ready:
+    if: >
+      (github.event_name == 'pull_request_review' && github.event.review.state == 'approved') ||
+      (github.event_name == 'check_suite' && github.event.check_suite.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            let prNumber;
+
+            if (context.eventName === 'pull_request_review') {
+              prNumber = context.payload.pull_request.number;
+            } else if (context.eventName === 'check_suite') {
+              // Find PRs associated with this check suite
+              const prs = context.payload.check_suite.pull_requests;
+              if (!prs || prs.length === 0) return;
+              prNumber = prs[0].number;
+            }
+
+            if (!prNumber) return;
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            if (pr.data.draft) {
+              console.log('PR is still a draft, skipping');
+              return;
+            }
+
+            // Check if approved
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            const approved = reviews.data.some(r => r.state === 'APPROVED');
+            if (!approved) {
+              console.log('PR not yet approved');
+              return;
+            }
+
+            // Check if all checks passed
+            const checks = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.data.head.sha,
+            });
+
+            const allPassed = checks.data.check_runs.every(
+              c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral'
+            );
+
+            if (!allPassed) {
+              console.log('Not all checks passed yet');
+              return;
+            }
+
+            // All good — label as ready to merge
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner, repo: context.repo.repo, name: 'ready-to-merge',
+              });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: 'ready-to-merge', color: '0e8a16', description: 'Approved + checks passed',
+              });
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['ready-to-merge'],
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `✅ **Ready to merge!**\n\n- ✅ Approved by reviewer\n- ✅ All checks passed\n\n*Merge when ready or use \`gh pr merge ${prNumber}\`*`,
+            });
+
+            console.log(`PR #${prNumber} labeled as ready-to-merge`);
