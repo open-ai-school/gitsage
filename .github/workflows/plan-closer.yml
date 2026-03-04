@@ -5,9 +5,10 @@ name: "🎯 Plan Closer"
 on:
   issues:
     types: [closed]
+concurrency:
+  group: plan-closer-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: plan-closer-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
 
