@@ -1,0 +1,116 @@
+# 🏷️ Issue Triage Bot
+# Auto-labels, prioritizes, and categorises new issues
+name: "🏷️ Issue Triage"
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const text = `${title} ${body}`;
+            const labels = new Set(issue.labels.map(l => l.name));
+
+            // --- Category labels ---
+            const rules = [
+              { keywords: ['bug', 'fix', 'error', 'crash', 'broken', 'fail', 'exception'], label: 'bug' },
+              { keywords: ['feature', 'add', 'new', 'implement', 'create', 'build'], label: 'enhancement' },
+              { keywords: ['doc', 'readme', 'typo', 'documentation', 'comment'], label: 'documentation' },
+              { keywords: ['translate', 'language', 'i18n', 'l10n', 'multilingual', '🇯🇵', '🇸🇦', '🇩🇪', '🇪🇸', '🇫🇷'], label: 'translation' },
+              { keywords: ['test', 'coverage', 'spec', 'jest', 'junit'], label: 'testing' },
+              { keywords: ['ci', 'cd', 'pipeline', 'workflow', 'deploy', 'action'], label: 'ci/cd' },
+              { keywords: ['security', 'vulnerability', 'cve', 'auth', 'xss', 'injection'], label: 'security' },
+              { keywords: ['performance', 'slow', 'optimize', 'cache', 'speed'], label: 'performance' },
+              { keywords: ['accessibility', 'a11y', 'aria', 'screen reader', 'wcag'], label: 'accessibility' },
+              { keywords: ['ui', 'ux', 'design', 'css', 'style', 'dark mode', 'theme'], label: 'ui/ux' },
+            ];
+
+            const toAdd = [];
+            for (const rule of rules) {
+              if (rule.keywords.some(kw => text.includes(kw)) && !labels.has(rule.label)) {
+                toAdd.push(rule.label);
+              }
+            }
+
+            // --- Priority labels ---
+            const priorityKeywords = {
+              'P0: Critical': ['critical', 'urgent', 'production down', 'security vulnerability', 'data loss'],
+              'P1: High':     ['important', 'high priority', 'blocker', 'regression'],
+              'P2: Medium':   ['medium', 'should have', 'improvement'],
+              'P3: Low':      ['low priority', 'nice to have', 'minor', 'cosmetic'],
+            };
+
+            let prioritySet = false;
+            for (const [label, keywords] of Object.entries(priorityKeywords)) {
+              if (keywords.some(kw => text.includes(kw))) {
+                toAdd.push(label);
+                prioritySet = true;
+                break;
+              }
+            }
+            if (!prioritySet) {
+              toAdd.push('P2: Medium'); // default priority
+            }
+
+            // --- Size estimation ---
+            if (text.includes('refactor') || text.includes('rewrite') || text.includes('architecture')) {
+              toAdd.push('size/L');
+            } else if (text.includes('typo') || text.includes('rename') || text.includes('minor')) {
+              toAdd.push('size/S');
+            } else {
+              toAdd.push('size/M');
+            }
+
+            // --- Needs plan for non-trivial issues ---
+            if (!labels.has('good first issue') && !text.includes('typo') && body.length > 100) {
+              toAdd.push('needs-plan');
+            }
+
+            // Ensure all labels exist, then add
+            for (const label of toAdd) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+              } catch {
+                const colors = {
+                  'bug': 'd73a4a', 'enhancement': 'a2eeef', 'documentation': '0075ca',
+                  'translation': '7057ff', 'testing': 'fbca04', 'ci/cd': 'e4e669',
+                  'security': 'b60205', 'performance': 'ff9f0a', 'accessibility': '0e8a16',
+                  'ui/ux': 'c5def5', 'needs-plan': 'f9d0c4', 'planned': '1d76db',
+                  'P0: Critical': 'b60205', 'P1: High': 'd93f0b',
+                  'P2: Medium': 'fbca04', 'P3: Low': '0e8a16',
+                  'size/S': 'c2e0c6', 'size/M': 'fef2c0', 'size/L': 'f9d0c4',
+                };
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                  color: colors[label] || 'ededed',
+                });
+              }
+            }
+
+            if (toAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: toAdd,
+              });
+            }
+
+            console.log(`Triaged issue #${issue.number}: added labels [${toAdd.join(', ')}]`);
