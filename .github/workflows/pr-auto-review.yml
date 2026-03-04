@@ -5,9 +5,10 @@ name: "🔍 PR Auto-Review"
 on:
   pull_request:
     types: [ready_for_review, synchronize]
+concurrency:
+  group: pr-auto-review-${{ github.ref }}
+  cancel-in-progress: true
 
-
-concurrency:n  group: pr-auto-review-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   pull-requests: write
   contents: read
