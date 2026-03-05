@@ -6,8 +6,8 @@ on:
   pull_request:
     types: [closed]
 concurrency:
-  group: sub-issue-closer-${{ github.ref }}
-  cancel-in-progress: true
+  group: sub-closer-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
