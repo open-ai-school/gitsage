@@ -8,8 +8,8 @@ on:
   check_suite:
     types: [completed]
 concurrency:
-  group: pr-merge-helper-${{ github.ref }}
-  cancel-in-progress: true
+  group: pr-merge-${{ github.event.pull_request.number || github.event.check_suite.pull_requests[0].number || github.sha }}
+  cancel-in-progress: false
 
 permissions:
   pull-requests: write
